@@ -27,12 +27,23 @@ public class Time implements Comparable<Time> {
     }
 
     public int getDifference(Time departureTime) {
-        return this.minutes - departureTime.minutes;
+        int diff = this.minutes - departureTime.minutes;
+        if (diff < 0) {
+            // if we pass midnight we need to offset it
+            diff += 24 * 60;
+        }
+        return diff;
     }
 
     @Override
     public int compareTo(Time o) {
-        return Integer.compare(this.minutes, o.minutes);
+        if (this.minutes < o.minutes) {
+            return -1;
+        } else if (this.minutes > o.minutes) {
+            return 1;
+        } else {
+            return 0;
+        }
     }
 
     @Override

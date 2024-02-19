@@ -1,8 +1,21 @@
 package com.edsv;
 
+import java.util.HashMap;
+
 public class Main {
-    public static void main(String[] args) {
+    private HashMap<Long, Node> nodes = new HashMap<>();
+
+    private void loadNodes() {
         DataLoader dl = new DataLoader();
-        dl.load();
+        nodes = dl.load();
+    }
+
+    public static void main(String[] args) {
+        Main main = new Main();
+        main.loadNodes();
+
+        System.out.println(AStarRouteFinder.findRoute(main.nodes, main.nodes.get(740012883L),
+                main.nodes.get(740021696L), new Time(8, 0)).stream().map(n -> n.getStop().getName()).reduce("",
+                        (a, b) -> a + " -> " + b));
     }
 }

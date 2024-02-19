@@ -37,6 +37,10 @@ public class Node {
         return getEdgesTo(to, new Time(0, 0));
     }
 
+    public TreeSet<Edge> getEdgesToSet(Node to) {
+        return edgesTo.get(to);
+    }
+
     public void addEdge(Edge edge) {
         if (!edgesTo.containsKey(edge.getTo())) {
             edgesTo.put(edge.getTo(), new TreeSet<>());

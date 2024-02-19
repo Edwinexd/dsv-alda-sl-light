@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -18,16 +19,17 @@ public class DataLoader {
     private TreeMap<Long, Trip> trips = new TreeMap<>();
     private TreeMap<Trip, List<StopTime>> stopTimes = new TreeMap<>();
 
-    public void load() {
+    public HashMap<Long, Node> load() {
         try {
             loadStops();
             loadTrips();
             loadStopTimes();
         } catch (IOException e) {
-            e.printStackTrace();
-            return;
+            throw new RuntimeException(e);
         }
         createNodes();
+
+        return nodes;
     }
 
     private void loadStops() throws IOException {
@@ -181,6 +183,15 @@ public class DataLoader {
                     System.out.println(e.getDeparture().getDepartureTime() + " -> " + e.getArrival().getArrivalTime());
                 }
             }
+        }
+
+        Node tCentralen = nodes.get(740020749L);
+
+        Node[] nodesArray = nodes.values().toArray(new Node[0]);
+        Arrays.sort(nodesArray, (a, b) -> Integer.compare(a.getStop().distanceTo(tCentralen.getStop()), b.getStop().distanceTo(tCentralen.getStop())));
+        for (int i = 0; i <nodesArray.length; i++) {
+            Node n = nodesArray[i];
+            System.out.println(n.getStop().getName() + ": " + n.getStop().distanceTo(tCentralen.getStop()));
         }
     }
 }
