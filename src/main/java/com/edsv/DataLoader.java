@@ -43,7 +43,7 @@ public class DataLoader {
             Long id = Long.parseLong(parts[0]);
             stops.put(id, new Stop(id, parts[1], Double.parseDouble(parts[2]), Double.parseDouble(parts[3])));
         }
-        System.out.println(stops.size());
+        // System.out.println(stops.size());
     }
     
     private void loadTrips() throws IOException {
@@ -60,7 +60,7 @@ public class DataLoader {
             String tripShortName = parts[4];
             trips.put(tripId, new Trip(routeId, serviceId, tripId, tripHeadsign, tripShortName, new LinkedList<>()));
         }
-        System.out.println(trips.size());
+        // System.out.println(trips.size());
     }
 
     private void loadStopTimes() throws IOException {
@@ -87,7 +87,7 @@ public class DataLoader {
             }
             stopTimes.add(new StopTime(tripId, arrivalTime, departureTime, stopId, stopSequence, pickupType, dropOffType));
         }
-        System.out.println(this.stopTimes.size());
+        // System.out.println(this.stopTimes.size());
         // get random key
         // System.out.println(this.stopTimes.firstEntry().getValue());
     }
@@ -102,34 +102,26 @@ public class DataLoader {
             List<StopTime> stopTimes = entry.getValue();
             StopTime previous = null;
             for (StopTime stopTime : stopTimes) {
-                if (stopTime.getDropOffType() == 1) { // first of line
-                    previous = stopTime;
-                    continue;
+                if (previous != null) {
+                    Node from = nodes.get(previous.getStopId());
+                    Node to = nodes.get(stopTime.getStopId());
+                    Edge edge = new Edge(to, previous, stopTime);
+                    from.addEdge(edge);
                 }
-                Stop previousStop = stops.get(previous.getStopId());
-                Stop currentStop = stops.get(stopTime.getStopId());
-
-                // add edge to node
-                // get previous stop node
-                Node previousNode = nodes.get(previousStop.getId());
-                // get current stop node
-                Node currentNode = nodes.get(currentStop.getId());
-                // create edge
-                previousNode.addEdge(new Edge(currentNode, previous, stopTime));
-
                 previous = stopTime;
             }
         }
-        System.out.println();
+        /* 
+        // System.out.println();
         // print first node and outgoing edges
         Node firstNode = nodes.values().iterator().next();
-        System.out.println(firstNode.getStop());
-        System.out.println(firstNode.getDestinations().stream().map(n -> firstNode.getEdgesTo(n).next()).toList());
+        // System.out.println(firstNode.getStop());
+        // System.out.println(firstNode.getDestinations().stream().map(n -> firstNode.getEdgesTo(n).next()).toList());
         // print trip name
         // System.out.println(trips.get(firstNode.getEdges().next().getDeparture().getTripId()).getTripHeadsign());
         // System.out.println(firstNode.getEdges().next().getTo().getStop());
 
-        System.out.println();
+        // System.out.println();
         Node nextNode = firstNode;
         for (int i = 0; i < 5; i++) {
             // nextNode = nextNode.getEdges().next().getTo();
@@ -137,7 +129,7 @@ public class DataLoader {
             // System.out.println(firstNode.getEdges().next());
             // System.out.println(nextNode.getEdges().get(0).getStopTime());
             // System.out.println(nextNode.getEdges().get(0).getTo().getStop());
-            System.out.println();
+            // System.out.println();
         }
         // edge iterator to flat list
         List<Edge> edges = new ArrayList<>();
@@ -148,31 +140,25 @@ public class DataLoader {
 
         List<Time> x = edges.stream().map(e -> e.getDeparture().getDepartureTime()).toList();
         // x.sort((a,b) -> a.compareTo(b));
-        System.out.println(x);
+        // System.out.println(x);
 
         // print haversine between first and second node
-        System.out.println(firstNode.getStop().distanceTo(firstNode.getDestinations().iterator().next().getStop()));
+        // System.out.println(firstNode.getStop().distanceTo(firstNode.getDestinations().iterator().next().getStop()));
 
 
         EdgeIterator emptyEi = new EdgeIterator(new TreeSet<>(), new Time(12, 0));
 
-        while (emptyEi.hasNext()) {
-            System.out.println(emptyEi.next().getDeparture().getDepartureTime());
-        }
 
         EdgeIterator eiWithOne = new EdgeIterator(new TreeSet<>(List.of(new Edge(null, new StopTime(0, new Time(12, 0), new Time(12, 1), 0, 0, 0, 0), new StopTime(0, new Time(12, 5), new Time(12, 6), 0, 0, 0, 0)))), new Time(12, 2));
 
-        while (eiWithOne.hasNext()) {
-            System.out.println(eiWithOne.next().getDeparture().getDepartureTime());
-        }
 
-        System.out.println();
-        System.out.println();
-        System.out.println();
+        // System.out.println();
+        // System.out.println();
+        // System.out.println();
 
         Node hornstull = nodes.get(740021658L);
-        System.out.println(hornstull.toString());
-        System.out.println(hornstull.getDestinations());
+        // System.out.println(hornstull.toString());
+        // System.out.println(hornstull.getDestinations());
         for (Node n : hornstull.getDestinations()) {
             System.out.println(n.getStop().getName() + ": " +
                 n.getStop().distanceTo(hornstull.getStop()));
@@ -180,7 +166,7 @@ public class DataLoader {
                 EdgeIterator ei4 = hornstull.getEdgesTo(n, new Time(12, 0));
                 while (ei4.hasNext()) {
                     Edge e = ei4.next();
-                    System.out.println(e.getDeparture().getDepartureTime() + " -> " + e.getArrival().getArrivalTime());
+                    // System.out.println(e.getDeparture().getDepartureTime() + " -> " + e.getArrival().getArrivalTime());
                 }
             }
         }
@@ -191,7 +177,7 @@ public class DataLoader {
         Arrays.sort(nodesArray, (a, b) -> Integer.compare(a.getStop().distanceTo(tCentralen.getStop()), b.getStop().distanceTo(tCentralen.getStop())));
         for (int i = 0; i <nodesArray.length; i++) {
             Node n = nodesArray[i];
-            System.out.println(n.getStop().getName() + ": " + n.getStop().distanceTo(tCentralen.getStop()));
-        }
+            // System.out.println(n.getStop().getName() + ": " + n.getStop().distanceTo(tCentralen.getStop()));
+        }*/
     }
 }

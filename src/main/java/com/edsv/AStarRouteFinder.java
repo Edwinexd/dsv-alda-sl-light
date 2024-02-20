@@ -13,8 +13,7 @@ public class AStarRouteFinder {
         // complains about this ...
         Node node;
         int cheapestCost = Integer.MAX_VALUE; // in minutes from startTime
-        NodeEntry cheapestPrevious = null; // ~~TODO: This may be outdated~~ we update this one, just duplicates in the
-                                           // queue
+        NodeEntry cheapestPrevious = null;
         Edge takenEdgeFromPrevious = null;
 
         NodeEntry(Node node) {
@@ -60,7 +59,6 @@ public class AStarRouteFinder {
     // TODO: Remove duplicate routes, e.g. a->b b->c may both be on tripId 1 and we
     // should then only return a->c
     public static LinkedList<Node> findRoute(HashMap<Long, Node> nodes, Node start, Node end, Time departureTime) {
-        // TODO: Add penalty for changing trip, teleporting between trains to save a minute doesn't work in reality
 
         // Heuristic, distance to goal
         HashMap<Long, Integer> distanceToGoal = new HashMap<>();
@@ -96,26 +94,57 @@ public class AStarRouteFinder {
                 break;
             }
 
-            // TODO Use distanceToGoal heuristic
             for (Node destination : current.node.getDestinations()) {
-                if (current.node == start) {
-                    System.out.println("Destination: " + destination.getStop().getName());
+                // if (current.node == start) {
+                    // System.out.println("Destination: " + destination.getStop().getName());
+                // }
+                Edge cheapestEdge = null;
+                int cheapestEdgeCost = Integer.MAX_VALUE;
+                for (Edge edge : current.node.getEdgesToSet(destination)) {
+                    boolean changeNeeded = current.takenEdgeFromPrevious != null && edge.getDeparture().getTripId() != current.takenEdgeFromPrevious.getDeparture().getTripId();
+                    if (changeNeeded) {
+                        int minutesTillNextTrip = edge.getDeparture().getDepartureTime().getDifference(new Time(current.cheapestCost + departureTime.getMinutes()));
+                        if (minutesTillNextTrip < 5) {
+                            // continue;
+                        }
+                    }
+                    int cost = edge.getDeparture().getDepartureTime().getDifference(new Time(current.cheapestCost + departureTime.getMinutes())) + edge.getTravelTime();
+                    if (cost < cheapestEdgeCost) {
+                        cheapestEdge = edge;
+                        cheapestEdgeCost = cost;
+                    }
                 }
-                // TODO: This needs to take into account changing trip
-                Edge cheapestEdge = current.node
-                        .getEdgesTo(destination, new Time(current.cheapestCost + departureTime.getMinutes()))
-                        .next();
+                /*
+                while (edgeIterator.hasNext()) {
+                    Edge edge = edgeIterator.next();
+                    // if tripId differs then we must have at least 5 minutes "downtime" before we can take the next trip
+                    boolean changeNeeded = current.takenEdgeFromPrevious != null && edge.getDeparture().getTripId() != current.takenEdgeFromPrevious.getDeparture().getTripId();
+                    if (changeNeeded) {
+                        int minutesTillNextTrip = edge.getDeparture().getDepartureTime().getDifference(new Time(current.cheapestCost + departureTime.getMinutes()));
+                        if (minutesTillNextTrip < 5) {
+                            continue;
+                        }
+                    }
+                    // TODO This inherently doesn't work because:
+                    // it might be 08:00 o'clock and have a departure at 07:56 but an arrival at 08:01
+                    // hence diff to departure is -4 minutes but diff to arrival is 1 minute
+                    // so one assumes we're looking at the next day and the other assumes we're looking at the same day
+                    // what to do?
+
+                    int cost = edge.getArrival().getArrivalTime().getDifference(new Time(current.cheapestCost + departureTime.getMinutes())); //+ edge.getTravelTime();
+                    if (cost < cheapestEdgeCost) {
+                        cheapestEdge = edge;
+                        cheapestEdgeCost = cost;
+                    }
+                }
+                */
                 // Cost to get here + time until edge.getArrival() is the cost to get to the next node
                 int newCost = current.cheapestCost;
-                if (current.node == start) {
-                    System.out.println("Cheapest edge: " + cheapestEdge.getDeparture().getDepartureTime() + " vs " + departureTime);
-                }
-                int minutesTillArrival = cheapestEdge.getArrival().getArrivalTime().getDifference(new Time(current.cheapestCost + departureTime.getMinutes()));
+                // TODO: Be careful around 07:56 -> 08:01 problem
+                int minutesTillArrival = cheapestEdge.getDeparture().getDepartureTime().getDifference(new Time(current.cheapestCost + departureTime.getMinutes())) + cheapestEdge.getTravelTime();
+                // int minutesTillArrival = cheapestEdge.getArrival().getArrivalTime().getDifference(new Time(current.cheapestCost + departureTime.getMinutes()));
 
                 newCost += minutesTillArrival;
-
-                // heuristic
-                // newCost += distanceToGoal.get(destination.getStop().getId());
 
                 if (newCost < 0) {
                     System.out.println("Negative cost: " + newCost);
@@ -123,12 +152,13 @@ public class AStarRouteFinder {
 
                 NodeEntry destinationEntry = nodeEntries.get(destination);
                 if (newCost < destinationEntry.cheapestCost) {
-                    if (current.node == start) {
-                        System.out.println("New cost: " + newCost);
-                    }
+                    // if (current.node == start) {
+                        // System.out.println("New cost: " + newCost);
+                    // }
                     destinationEntry.cheapestCost = newCost;
                     destinationEntry.cheapestPrevious = current;
                     destinationEntry.takenEdgeFromPrevious = cheapestEdge;
+                    int heuristic = distanceToGoal.get(destination.getStop().getId());
                     queue.add(new QueueEntry(destinationEntry, newCost, newCost));   // includes revisting an already
                                                                                      // visited node with a
                                                                                      // cheaper cost
@@ -158,6 +188,7 @@ public class AStarRouteFinder {
                 // print what station and time we swap trip
                 if (i > 0) {
                     System.out.println(edges.get(i-1).getTo().getStop().getName());
+                    System.out.println(edges.get(i-1).getDeparture().getDepartureTime() + " -> XX:XX");
                     System.out.println(edge.getDeparture().getDepartureTime());
                 }
                 System.out.println(edge.getDeparture().getTripId());
@@ -166,6 +197,7 @@ public class AStarRouteFinder {
             // System.out.println(edge.getDeparture().getDepartureTime() + " -> " + edge.getArrival().getArrivalTime());
             // System.out.println(edge.getTo().getStop().getName());
         }
+        System.out.println(edges.getFirst().getDeparture().getDepartureTime() + " -> " + edges.getLast().getArrival().getArrivalTime());
 
         return path;
     }

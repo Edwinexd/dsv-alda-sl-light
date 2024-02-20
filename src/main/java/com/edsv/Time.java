@@ -26,6 +26,7 @@ public class Time implements Comparable<Time> {
         return minutes % 60;
     }
 
+    // TODO: Extremely unambiguous comparison!
     public int getDifference(Time departureTime) {
         int diff = this.minutes - departureTime.minutes;
         if (diff < 0) {

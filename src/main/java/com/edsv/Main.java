@@ -14,6 +14,8 @@ public class Main {
         Main main = new Main();
         main.loadNodes();
 
+        System.out.println(main.nodes.get(740012883L).getDestinations());
+
         System.out.println(AStarRouteFinder.findRoute(main.nodes, main.nodes.get(740012883L),
                 main.nodes.get(740021696L), new Time(8, 0)).stream().map(n -> n.getStop().getName()).reduce("",
                         (a, b) -> a + " -> " + b));
