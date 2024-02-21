@@ -6,6 +6,7 @@ import java.util.List;
 public class Trip implements Comparable<Trip> {
     // route_id,service_id,trip_id,trip_headsign,trip_short_name
     private long routeId;
+    private Route route;
     private long serviceId;
     private long tripId;
     private String tripHeadsign;
@@ -13,7 +14,7 @@ public class Trip implements Comparable<Trip> {
 
     private ArrayList<StopTime> stopTimes;
 
-    public Trip(long routeId, long serviceId, long tripId, String tripHeadsign, String tripShortName, List<StopTime> stopTimes) {
+    public Trip(long routeId, Route route, long serviceId, long tripId, String tripHeadsign, String tripShortName, List<StopTime> stopTimes) {
         this.routeId = routeId;
         this.serviceId = serviceId;
         this.tripId = tripId;
@@ -24,6 +25,10 @@ public class Trip implements Comparable<Trip> {
 
     public long getRouteId() {
         return routeId;
+    }
+
+    public Route getRoute() {
+        return route;
     }
 
     public long getServiceId() {

@@ -95,11 +95,10 @@ public class AStarRouteFinder {
             }
 
             for (Node destination : current.node.getDestinations()) {
-                // if (current.node == start) {
-                    // System.out.println("Destination: " + destination.getStop().getName());
-                // }
                 Edge cheapestEdge = null;
                 int cheapestEdgeCost = Integer.MAX_VALUE;
+                // TODO: We need to evaluate all different routes to the same destination
+                // as it may be cheaper to have used a different trip later on in the future to avoid unnecessary waiting
                 for (Edge edge : current.node.getEdgesToSet(destination)) {
                     boolean changeNeeded = current.takenEdgeFromPrevious != null && edge.getDeparture().getTripId() != current.takenEdgeFromPrevious.getDeparture().getTripId();
                     if (changeNeeded) {
@@ -114,30 +113,6 @@ public class AStarRouteFinder {
                         cheapestEdgeCost = cost;
                     }
                 }
-                /*
-                while (edgeIterator.hasNext()) {
-                    Edge edge = edgeIterator.next();
-                    // if tripId differs then we must have at least 5 minutes "downtime" before we can take the next trip
-                    boolean changeNeeded = current.takenEdgeFromPrevious != null && edge.getDeparture().getTripId() != current.takenEdgeFromPrevious.getDeparture().getTripId();
-                    if (changeNeeded) {
-                        int minutesTillNextTrip = edge.getDeparture().getDepartureTime().getDifference(new Time(current.cheapestCost + departureTime.getMinutes()));
-                        if (minutesTillNextTrip < 5) {
-                            continue;
-                        }
-                    }
-                    // TODO This inherently doesn't work because:
-                    // it might be 08:00 o'clock and have a departure at 07:56 but an arrival at 08:01
-                    // hence diff to departure is -4 minutes but diff to arrival is 1 minute
-                    // so one assumes we're looking at the next day and the other assumes we're looking at the same day
-                    // what to do?
-
-                    int cost = edge.getArrival().getArrivalTime().getDifference(new Time(current.cheapestCost + departureTime.getMinutes())); //+ edge.getTravelTime();
-                    if (cost < cheapestEdgeCost) {
-                        cheapestEdge = edge;
-                        cheapestEdgeCost = cost;
-                    }
-                }
-                */
                 // Cost to get here + time until edge.getArrival() is the cost to get to the next node
                 int newCost = current.cheapestCost;
                 // TODO: Be careful around 07:56 -> 08:01 problem

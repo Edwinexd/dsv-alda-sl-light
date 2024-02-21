@@ -18,10 +18,13 @@ public class DataLoader {
     private TreeMap<Long, Stop> stops = new TreeMap<>();
     private TreeMap<Long, Trip> trips = new TreeMap<>();
     private TreeMap<Trip, List<StopTime>> stopTimes = new TreeMap<>();
+    private HashMap<Long, Route> routes = new HashMap<>();
+    private HashMap<Trip, Route> tripRoutes = new HashMap<>();
 
     public HashMap<Long, Node> load() {
         try {
             loadStops();
+            loadRoutes();
             loadTrips();
             loadStopTimes();
         } catch (IOException e) {
@@ -58,7 +61,8 @@ public class DataLoader {
             long tripId = Long.parseLong(parts[2]);
             String tripHeadsign = parts[3];
             String tripShortName = parts[4];
-            trips.put(tripId, new Trip(routeId, serviceId, tripId, tripHeadsign, tripShortName, new LinkedList<>()));
+            Route route = routes.get(routeId);
+            trips.put(tripId, new Trip(routeId, route, serviceId, tripId, tripHeadsign, tripShortName, new LinkedList<>()));
         }
         // System.out.println(trips.size());
     }
@@ -85,11 +89,29 @@ public class DataLoader {
                 stopTimes = new LinkedList<>();
                 this.stopTimes.put(trip, stopTimes);
             }
-            stopTimes.add(new StopTime(tripId, arrivalTime, departureTime, stopId, stopSequence, pickupType, dropOffType));
+            stopTimes.add(new StopTime(tripId, trip, arrivalTime, departureTime, stopId, stopSequence, pickupType, dropOffType));
         }
         // System.out.println(this.stopTimes.size());
         // get random key
         // System.out.println(this.stopTimes.firstEntry().getValue());
+    }
+
+    private void loadRoutes() throws IOException {
+        // Load routes from resources/sl_routes.csv
+        InputStreamReader isr = new InputStreamReader(getClass().getClassLoader().getResourceAsStream("sl_routes.csv"));
+        BufferedReader br = new BufferedReader(isr);
+        String line = br.readLine(); // Skip header
+        while ((line = br.readLine()) != null) {
+            String[] parts = line.split(",");
+            long id = Long.parseLong(parts[0]);
+            String agencyId = parts[1];
+            String shortName = parts[2];
+            String longName = parts[3];
+            int type = Integer.parseInt(parts[4]);
+            String url = parts[5];
+            routes.put(id, new Route(id, agencyId, shortName, longName, type, url));
+        }
+        // System.out.println(routes.size());
     }
 
     private void createNodes() {
@@ -180,4 +202,5 @@ public class DataLoader {
             // System.out.println(n.getStop().getName() + ": " + n.getStop().distanceTo(tCentralen.getStop()));
         }*/
     }
+
 }

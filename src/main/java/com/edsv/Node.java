@@ -3,6 +3,7 @@ package com.edsv;
 import java.util.HashMap;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.Map.Entry;
 
 public class Node {
     private Stop stop;
@@ -10,6 +11,7 @@ public class Node {
     // private TreeSet<Edge> edges;
 
     private HashMap<Node, TreeSet<Edge>> edgesTo = new HashMap<>();
+    private HashMap<Node, HashMap<Route, TreeSet<Edge>>> edgesToByRoute = new HashMap<>();
 
     public Node(Stop stop) {
         this.stop = stop;
@@ -41,11 +43,23 @@ public class Node {
         return edgesTo.get(to);
     }
 
+    public Set<Entry<Route, TreeSet<Edge>>> getEdgesToRoutes(Node to) {
+        return edgesToByRoute.get(to).entrySet();
+    }
+
     public void addEdge(Edge edge) {
         if (!edgesTo.containsKey(edge.getTo())) {
             edgesTo.put(edge.getTo(), new TreeSet<>());
         }
         edgesTo.get(edge.getTo()).add(edge);
+
+        if (!edgesToByRoute.containsKey(edge.getTo())) {
+            edgesToByRoute.put(edge.getTo(), new HashMap<>());
+        }
+        if (!edgesToByRoute.get(edge.getTo()).containsKey(edge.getDeparture().getTrip().getRoute())) {
+            edgesToByRoute.get(edge.getTo()).put(edge.getDeparture().getTrip().getRoute(), new TreeSet<>());
+        }
+        edgesToByRoute.get(edge.getTo()).get(edge.getDeparture().getTrip().getRoute()).add(edge);
     }
 
 

@@ -2,6 +2,7 @@ package com.edsv;
 
 public class StopTime {
     private long tripId;
+    private Trip trip;
     private Time arrivalTime;
     private Time departureTime;
     private long stopId;
@@ -9,8 +10,9 @@ public class StopTime {
     private int pickupType;
     private int dropOffType;
 
-    public StopTime(long tripId, Time arrivalTime, Time departureTime, long stopId, int stopSequence, int pickupType, int dropOffType) {
+    public StopTime(long tripId, Trip trip, Time arrivalTime, Time departureTime, long stopId, int stopSequence, int pickupType, int dropOffType) {
         this.tripId = tripId;
+        this.trip = trip;
         this.arrivalTime = arrivalTime;
         this.departureTime = departureTime;
         this.stopId = stopId;
@@ -21,6 +23,10 @@ public class StopTime {
 
     public long getTripId() {
         return tripId;
+    }
+
+    public Trip getTrip() {
+        return trip;
     }
 
     public Time getArrivalTime() {
