@@ -16,6 +16,7 @@ public class Trip implements Comparable<Trip> {
 
     public Trip(long routeId, Route route, long serviceId, long tripId, String tripHeadsign, String tripShortName, List<StopTime> stopTimes) {
         this.routeId = routeId;
+        this.route = route;
         this.serviceId = serviceId;
         this.tripId = tripId;
         this.tripHeadsign = tripHeadsign;

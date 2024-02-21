@@ -11,6 +11,7 @@ public class Node {
     // private TreeSet<Edge> edges;
 
     private HashMap<Node, TreeSet<Edge>> edgesTo = new HashMap<>();
+    // edges are in sorted order
     private HashMap<Node, HashMap<Route, TreeSet<Edge>>> edgesToByRoute = new HashMap<>();
 
     public Node(Stop stop) {
