@@ -14,10 +14,15 @@ public class Main {
         Main main = new Main();
         main.loadNodes();
 
-        System.out.println(main.nodes.get(740012883L).getDestinations());
+        // System.out.println(main.nodes.get(740012883L).getDestinations());
 
+        // to Fruängen T-bana
         System.out.println(AStarRouteFinder.findRoute(main.nodes, main.nodes.get(740012883L),
-                main.nodes.get(740021696L), new Time(8, 0)));//.stream().map(n -> n.getStop().getName()).reduce("",
+                main.nodes.get(740021719L), new Time(8, 0)));//.stream().map(n -> n.getStop().getName()).reduce("",
                         //(a, b) -> a + " -> " + b));
+        // to Rågsved
+        System.out.println(AStarRouteFinder.findRoute(main.nodes, main.nodes.get(740012883L),
+            main.nodes.get(740021713L), new Time(8, 0)));//.stream().map(n -> n.getStop().getName()).reduce("",
+                //(a, b) -> a + " -> " + b));
     }
 }

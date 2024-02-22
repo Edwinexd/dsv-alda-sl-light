@@ -91,12 +91,17 @@ public class AStarRouteFinder {
             NodeEntry current = polled.entry;
             if (current.node.equals(end)) {
                 System.out.println("Done");
-                // break; // decreases travel time by 20 minutes for some reason
+                break; // decreases travel time by 20 minutes for some reason
             }
 
             for (Node destination : current.node.getDestinations()) {
-                int heuristic = distanceToGoal.get(destination.getStop().getId());
+                // TODO: The heuristic is not great, > 
+                // A heuristic function should be in the same units as the actual cost function.
+                // If the cost of moving between adjacent nodes is measured in meters, then the heuristic function should also use meters.
+                // right now one of the metrics is in minutes and the other in meters - we can't really convert them easily
+                int goalDistance = distanceToGoal.get(destination.getStop().getId());
                 Time currentTime = new Time(departureTime.getMinutes() + current.cost);
+
                 // 00:05, 06:03, 07:01 - sorted iteration
                 for (Entry<Route, TreeSet<Edge>> entry : current.node.getEdgesToRoutes(destination)) {
                     Route route = entry.getKey();
@@ -123,8 +128,15 @@ public class AStarRouteFinder {
                         newEntry.pathTaken.add(edge);
                         if (newCost < cheapestCosts.getOrDefault(destination, new NodeEntry(destination)).cost) {
                             cheapestCosts.put(destination, newEntry);
-                            queue.add(new QueueEntry(newEntry, newCost, newCost + heuristic));
                         }
+                        int averageSpeedOfTraveled = start.getStop().distanceTo(destination.getStop()) / newCost;
+                        // ^ meters / minutes
+                        int estimatedMinutesToGoal = goalDistance / (averageSpeedOfTraveled == 0 ? 1 : averageSpeedOfTraveled);
+                        int priority = newCost + estimatedMinutesToGoal;
+                        // int priority = newCost;
+                        int numberOfTransfers = newEntry.pathTaken.stream().map(e -> e.getDeparture().getTripId()).distinct().toList().size() - 1;
+                        priority += numberOfTransfers; // if two routes end up having the same cost we prefer the one with fewer transfers
+                        queue.add(new QueueEntry(newEntry, newCost, priority));
                         break;
                     }
                 }
