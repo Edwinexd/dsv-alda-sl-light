@@ -8,11 +8,14 @@ import java.util.TreeSet;
 import java.util.Map.Entry;
 
 public class AStarRouteFinder {
+    // This value comes from a brute force calculation of the dataset
+    private static final int MAX_SPEED = 1169; // meters per minute
 
     private static class NodeEntry implements Comparable<NodeEntry> {
         Node node;
         int cost = Integer.MAX_VALUE; // in minutes from startTime
-        List<Edge> pathTaken = new LinkedList<>();
+        NodeEntry previous; // for reconstructing path
+        Edge previousEdge;
 
         NodeEntry(Node node) {
             this.node = node;
@@ -65,6 +68,8 @@ public class AStarRouteFinder {
         }
 
         // This wastes memory as we never remove anything from this mapping
+        // ... because this map lacks the "time" dimension we can't have a simple
+        // greedy algorithm and we instead need to follow the actual navigated path (based on NodeEntry.previous => start)
         HashMap<Node, NodeEntry> cheapestCosts = new HashMap<>();
         // for (Node node : nodes.values()) {
             // nodeEntries.put(node, new NodeEntry(node));
@@ -90,15 +95,16 @@ public class AStarRouteFinder {
             // }
             NodeEntry current = polled.entry;
             if (current.node.equals(end)) {
-                System.out.println("Done");
-                break; // decreases travel time by 20 minutes for some reason
+                LinkedList<Edge> path = new LinkedList<>();
+                NodeEntry currentEntry = current;
+                while (currentEntry.previous != null) {
+                    path.addFirst(currentEntry.previousEdge);
+                    currentEntry = currentEntry.previous;
+                }
+                return path;
             }
 
             for (Node destination : current.node.getDestinations()) {
-                // TODO: The heuristic is not great, > 
-                // A heuristic function should be in the same units as the actual cost function.
-                // If the cost of moving between adjacent nodes is measured in meters, then the heuristic function should also use meters.
-                // right now one of the metrics is in minutes and the other in meters - we can't really convert them easily
                 int goalDistance = distanceToGoal.get(destination.getStop().getId());
                 Time currentTime = new Time(departureTime.getMinutes() + current.cost);
 
@@ -113,8 +119,7 @@ public class AStarRouteFinder {
                         if (edge.getDeparture().getDepartureTime().getMinutes() < currentTime.getMinutes()) {
                             continue;
                         }
-
-                        if (current.pathTaken.size() != 0 && current.pathTaken.getLast().getArrival().getTripId() != edge.getDeparture().getTripId()) {
+                        if (current.previousEdge != null && current.previousEdge.getArrival().getTripId() != edge.getDeparture().getTripId()) {
                             // Departure must be in more than 5 minutes if we are switching route
                             if (edge.getDeparture().getDepartureTime().getDifference(currentTime) < 5) {
                                 continue;
@@ -124,18 +129,15 @@ public class AStarRouteFinder {
                         int newCost = current.cost + edge.getDeparture().getDepartureTime().getDifference(currentTime) + edge.getTravelTime();
                         NodeEntry newEntry = new NodeEntry(destination);
                         newEntry.cost = newCost;
-                        newEntry.pathTaken.addAll(current.pathTaken);
-                        newEntry.pathTaken.add(edge);
+                        newEntry.previous = current;
+                        newEntry.previousEdge = edge;
                         if (newCost < cheapestCosts.getOrDefault(destination, new NodeEntry(destination)).cost) {
                             cheapestCosts.put(destination, newEntry);
                         }
-                        int averageSpeedOfTraveled = start.getStop().distanceTo(destination.getStop()) / newCost;
-                        // ^ meters / minutes
-                        int estimatedMinutesToGoal = goalDistance / (averageSpeedOfTraveled == 0 ? 1 : averageSpeedOfTraveled);
+                        int estimatedMinutesToGoal = goalDistance / MAX_SPEED;
                         int priority = newCost + estimatedMinutesToGoal;
-                        // int priority = newCost;
-                        int numberOfTransfers = newEntry.pathTaken.stream().map(e -> e.getDeparture().getTripId()).distinct().toList().size() - 1;
-                        priority += numberOfTransfers; // if two routes end up having the same cost we prefer the one with fewer transfers
+                        // TODO: Penalizing transfers is prob a good idea but shouldn't be done from this
+                        // priority += numberOfTransfers; // if two routes end up having the same cost we prefer the one with fewer transfers
                         queue.add(new QueueEntry(newEntry, newCost, priority));
                         break;
                     }
@@ -143,7 +145,7 @@ public class AStarRouteFinder {
             }
         }
 
-
+        /*
         NodeEntry endEntry = cheapestCosts.get(end);
         // count unique trip ids
         System.out.println(endEntry.pathTaken.stream().map(e -> e.getDeparture().getTripId()).distinct().count());
@@ -152,8 +154,7 @@ public class AStarRouteFinder {
         System.out.println(endEntry.pathTaken.stream().map(e -> e.getDeparture().getTripId()).toList());
 
         System.out.println(endEntry.cost);
-
-        // TODO: Build path
+        */
         return null;
     }
 }

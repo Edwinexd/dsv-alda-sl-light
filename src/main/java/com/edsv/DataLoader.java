@@ -31,7 +31,8 @@ public class DataLoader {
             throw new RuntimeException(e);
         }
         createNodes();
-
+        System.out.println(getMaxSpeed());
+        
         return nodes;
     }
 
@@ -62,6 +63,7 @@ public class DataLoader {
             String tripHeadsign = parts[3];
             String tripShortName = parts[4];
             Route route = routes.get(routeId);
+            // TODO we should actually add the stoptimes
             trips.put(tripId, new Trip(routeId, route, serviceId, tripId, tripHeadsign, tripShortName, new LinkedList<>()));
         }
         // System.out.println(trips.size());
@@ -203,4 +205,26 @@ public class DataLoader {
         }*/
     }
 
+    private int getMaxSpeed() {
+        // For each node, check all edges and check what the speed is
+        // if it is the highest - update counter
+        int maxSpeed = Integer.MIN_VALUE;
+        for (Node node : nodes.values()) {
+            for (Node destination : node.getDestinations()) {
+                for (Entry<Route, TreeSet<Edge>> entry : node.getEdgesToRoutes(destination)) {
+                    Route route = entry.getKey();
+                    for (Edge edge : entry.getValue()) {
+                        int travelTime = edge.getTravelTime();
+                        int metersTravelled = node.getStop().distanceTo(destination.getStop());
+                        int speed = metersTravelled / Math.max(travelTime, 1);
+                        if (speed > maxSpeed) {
+                            maxSpeed = speed;
+                        }
+                    }
+            
+                }
+            }
+        }
+        return maxSpeed;
+    }
 }
