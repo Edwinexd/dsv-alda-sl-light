@@ -1,6 +1,8 @@
 package com.edsv;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 public class Trip implements Comparable<Trip> {
@@ -12,16 +14,20 @@ public class Trip implements Comparable<Trip> {
     private String tripHeadsign;
     private String tripShortName;
 
-    private ArrayList<StopTime> stopTimes;
+    private ArrayList<StopTime> stopTimes = new ArrayList<>();
 
-    public Trip(long routeId, Route route, long serviceId, long tripId, String tripHeadsign, String tripShortName, List<StopTime> stopTimes) {
+    public Trip(long routeId, Route route, long serviceId, long tripId, String tripHeadsign, String tripShortName) {
         this.routeId = routeId;
         this.route = route;
         this.serviceId = serviceId;
         this.tripId = tripId;
         this.tripHeadsign = tripHeadsign;
         this.tripShortName = tripShortName;
-        this.stopTimes = new ArrayList<>(stopTimes);
+    }
+
+    public Trip(long routeId, Route route, long serviceId, long tripId, String tripHeadsign, String tripShortName, Collection<StopTime> stopTimes) {
+        this(routeId, route, serviceId, tripId, tripHeadsign, tripShortName);
+        this.stopTimes.addAll(stopTimes);
     }
 
     public long getRouteId() {
@@ -49,7 +55,15 @@ public class Trip implements Comparable<Trip> {
     }
 
     public List<StopTime> getStopTimes() {
-        return new ArrayList<>(stopTimes);
+        return Collections.unmodifiableList(stopTimes);
+    }
+
+    void addStopTime(StopTime stopTime) {
+        stopTimes.add(stopTime);
+    }
+
+    void addStopTimes(List<StopTime> stopTimes) {
+        this.stopTimes.addAll(stopTimes);
     }
 
     @Override

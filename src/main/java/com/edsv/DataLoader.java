@@ -3,127 +3,126 @@ package com.edsv;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.Map.Entry;
 
-// TODO: Clean up this class
 public class DataLoader {
-    private HashMap<Long, Node> nodes = new HashMap<>();
-    private TreeMap<Long, Stop> stops = new TreeMap<>();
-    private TreeMap<Long, Trip> trips = new TreeMap<>();
-    private TreeMap<Trip, List<StopTime>> stopTimes = new TreeMap<>();
-    private HashMap<Long, Route> routes = new HashMap<>();
-    private HashMap<Trip, Route> tripRoutes = new HashMap<>();
-
-    public HashMap<Long, Node> load() {
-        try {
-            loadStops();
-            loadRoutes();
-            loadTrips();
-            loadStopTimes();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
+    public static HashMap<Long, Node> load() {
+        HashMap<Long, Stop> stops = loadStops();
+        HashMap<Long, Route> routes = loadRoutes();
+        HashMap<Long, Trip> trips = loadTrips(routes);
+        HashMap<Trip, LinkedList<StopTime>> stopTimes = loadStopTimes(trips);
+        for (Entry<Trip, LinkedList<StopTime>> entry : stopTimes.entrySet()) {
+            entry.getKey().addStopTimes(entry.getValue());
         }
-        createNodes();
-        System.out.println(getMaxSpeed());
-        
+        HashMap<Long, Node> nodes = buildNodes(stops.values(), stopTimes.values());
+        System.out.println("Max speed: " + getMaxSpeed(nodes.values()) + " meters per minute (excluding 0 minute travel times)");
         return nodes;
     }
 
-    private void loadStops() throws IOException {
+    private static HashMap<Long, Stop> loadStops() {
+        HashMap<Long, Stop> stops = new HashMap<>();
         // Load stops from resources/sl_stops.csv
-        // TODO: Try with resources 
-        InputStreamReader isr = new InputStreamReader(getClass().getClassLoader().getResourceAsStream("sl_stops.csv"));
-        BufferedReader br = new BufferedReader(isr);
-        String line = br.readLine(); // Skip header
-        while ((line = br.readLine()) != null) {
-            String[] parts = line.split(",");
-            Long id = Long.parseLong(parts[0]);
-            stops.put(id, new Stop(id, parts[1], Double.parseDouble(parts[2]), Double.parseDouble(parts[3])));
+        try (InputStreamReader isr = new InputStreamReader(DataLoader.class.getClassLoader().getResourceAsStream("sl_stops.csv"));
+            BufferedReader br = new BufferedReader(isr)) {
+            String line = br.readLine(); // Skip header
+            while ((line = br.readLine()) != null) {
+               String[] parts = line.split(",");
+               Long id = Long.parseLong(parts[0]);
+               stops.put(id, new Stop(id, parts[1], Double.parseDouble(parts[2]), Double.parseDouble(parts[3])));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        // System.out.println(stops.size());
+        return stops;
     }
     
-    private void loadTrips() throws IOException {
+    private static HashMap<Long, Trip> loadTrips(HashMap<Long, Route> routes) {
+        HashMap<Long, Trip> trips = new HashMap<>();
         // Load trips from resources/sl_trips.csv
-        InputStreamReader isr = new InputStreamReader(getClass().getClassLoader().getResourceAsStream("sl_trips.csv"));
-        BufferedReader br = new BufferedReader(isr);
-        String line = br.readLine(); // Skip header
-        while ((line = br.readLine()) != null) {
-            String[] parts = line.split(",");
-            long routeId = Long.parseLong(parts[0]);
-            long serviceId = Long.parseLong(parts[1]);
-            long tripId = Long.parseLong(parts[2]);
-            String tripHeadsign = parts[3];
-            String tripShortName = parts[4];
-            Route route = routes.get(routeId);
-            // TODO we should actually add the stoptimes
-            trips.put(tripId, new Trip(routeId, route, serviceId, tripId, tripHeadsign, tripShortName, new LinkedList<>()));
-        }
-        // System.out.println(trips.size());
-    }
-
-    private void loadStopTimes() throws IOException {
-        // Load stop times from resources/sl_stop_times.csv
-        InputStreamReader isr = new InputStreamReader(getClass().getClassLoader().getResourceAsStream("sl_stop_times.csv"));
-        BufferedReader br = new BufferedReader(isr);
-        String line = br.readLine(); // Skip header
-        while ((line = br.readLine()) != null) {
-            String[] parts = line.split(",");
-            long tripId = Long.parseLong(parts[0]);
-            long stopId = Long.parseLong(parts[3]);
-            int stopSequence = Integer.parseInt(parts[4]);
-            String[] arrivalTimeParts = parts[1].split(":");
-            Time arrivalTime = new Time(Integer.parseInt(arrivalTimeParts[0]), Integer.parseInt(arrivalTimeParts[1]));
-            String[] departureTimeParts = parts[2].split(":");
-            Time departureTime = new Time(Integer.parseInt(departureTimeParts[0]), Integer.parseInt(departureTimeParts[1]));
-            int pickupType = Integer.parseInt(parts[5]);
-            int dropOffType = Integer.parseInt(parts[6]);
-            Trip trip = trips.get(tripId);
-            List<StopTime> stopTimes = this.stopTimes.get(trip);
-            if (stopTimes == null) {
-                stopTimes = new LinkedList<>();
-                this.stopTimes.put(trip, stopTimes);
+        try (InputStreamReader isr = new InputStreamReader(DataLoader.class.getClassLoader().getResourceAsStream("sl_trips.csv"));
+            BufferedReader br = new BufferedReader(isr)) {
+            String line = br.readLine(); // Skip header
+            while ((line = br.readLine()) != null) {
+               String[] parts = line.split(",");
+               long routeId = Long.parseLong(parts[0]);
+               long serviceId = Long.parseLong(parts[1]);
+               long tripId = Long.parseLong(parts[2]);
+               String tripHeadsign = parts[3];
+               String tripShortName = parts[4];
+               Route route = routes.get(routeId);
+               // Circular references, Trip.stopTimes are added later
+               trips.put(tripId, new Trip(routeId, route, serviceId, tripId, tripHeadsign, tripShortName));
             }
-            stopTimes.add(new StopTime(tripId, trip, arrivalTime, departureTime, stopId, stopSequence, pickupType, dropOffType));
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        // System.out.println(this.stopTimes.size());
-        // get random key
-        // System.out.println(this.stopTimes.firstEntry().getValue());
+        return trips;
     }
 
-    private void loadRoutes() throws IOException {
+    private static HashMap<Trip, LinkedList<StopTime>> loadStopTimes(HashMap<Long, Trip> trips) {
+        HashMap<Trip, LinkedList<StopTime>> stopTimes = new HashMap<>();
+        // Load stop times from resources/sl_stop_times.csv
+        try (InputStreamReader isr = new InputStreamReader(DataLoader.class.getClassLoader().getResourceAsStream("sl_stop_times.csv"));
+            BufferedReader br = new BufferedReader(isr)) {
+            String line = br.readLine(); // Skip header
+            while ((line = br.readLine()) != null) {
+               String[] parts = line.split(",");
+               long tripId = Long.parseLong(parts[0]);
+               long stopId = Long.parseLong(parts[3]);
+               int stopSequence = Integer.parseInt(parts[4]);
+               String[] arrivalTimeParts = parts[1].split(":");
+               Time arrivalTime = new Time(Integer.parseInt(arrivalTimeParts[0]), Integer.parseInt(arrivalTimeParts[1]));
+               String[] departureTimeParts = parts[2].split(":");
+               Time departureTime = new Time(Integer.parseInt(departureTimeParts[0]), Integer.parseInt(departureTimeParts[1]));
+               int pickupType = Integer.parseInt(parts[5]);
+               int dropOffType = Integer.parseInt(parts[6]);
+               Trip trip = trips.get(tripId);
+               LinkedList<StopTime> stopTimesSequence = stopTimes.get(trip);
+               if (stopTimesSequence == null) {
+                  stopTimesSequence = new LinkedList<>();
+                  stopTimes.put(trip, stopTimesSequence);
+               }
+               stopTimesSequence.add(new StopTime(tripId, trip, arrivalTime, departureTime, stopId, stopSequence, pickupType, dropOffType));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return stopTimes;
+    }
+
+    private static HashMap<Long, Route> loadRoutes() {
+        HashMap<Long, Route> routes = new HashMap<>();
         // Load routes from resources/sl_routes.csv
-        InputStreamReader isr = new InputStreamReader(getClass().getClassLoader().getResourceAsStream("sl_routes.csv"));
-        BufferedReader br = new BufferedReader(isr);
-        String line = br.readLine(); // Skip header
-        while ((line = br.readLine()) != null) {
-            String[] parts = line.split(",");
-            long id = Long.parseLong(parts[0]);
-            String agencyId = parts[1];
-            String shortName = parts[2];
-            String longName = parts[3];
-            int type = Integer.parseInt(parts[4]);
-            String url = parts[5];
-            routes.put(id, new Route(id, agencyId, shortName, longName, type, url));
+        try (InputStreamReader isr = new InputStreamReader(DataLoader.class.getClassLoader().getResourceAsStream("sl_routes.csv"));
+            BufferedReader br = new BufferedReader(isr)) {
+            String line = br.readLine(); // Skip header
+            while ((line = br.readLine()) != null) {
+               String[] parts = line.split(",");
+               long id = Long.parseLong(parts[0]);
+               String agencyId = parts[1];
+               String shortName = parts[2];
+               String longName = parts[3];
+               int type = Integer.parseInt(parts[4]);
+               String url = parts[5];
+               routes.put(id, new Route(id, agencyId, shortName, longName, type, url));
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        // System.out.println(routes.size());
+        return routes;
     }
 
-    private void createNodes() {
-        for (Stop stop : stops.values()) {
+    private static HashMap<Long, Node> buildNodes(Iterable<Stop> stops, Collection<LinkedList<StopTime>> collection) {
+        HashMap<Long, Node> nodes = new HashMap<>();
+        for (Stop stop : stops) {
             nodes.put(stop.getId(), new Node(stop));
         }
 
-        for (Entry<Trip, List<StopTime>> entry : stopTimes.entrySet()) {
-            Trip trip = entry.getKey();
-            List<StopTime> stopTimes = entry.getValue();
+        for (List<StopTime> stopTimes : collection) {
             StopTime previous = null;
             for (StopTime stopTime : stopTimes) {
                 if (previous != null) {
@@ -135,93 +134,22 @@ public class DataLoader {
                 previous = stopTime;
             }
         }
-        /* 
-        // System.out.println();
-        // print first node and outgoing edges
-        Node firstNode = nodes.values().iterator().next();
-        // System.out.println(firstNode.getStop());
-        // System.out.println(firstNode.getDestinations().stream().map(n -> firstNode.getEdgesTo(n).next()).toList());
-        // print trip name
-        // System.out.println(trips.get(firstNode.getEdges().next().getDeparture().getTripId()).getTripHeadsign());
-        // System.out.println(firstNode.getEdges().next().getTo().getStop());
-
-        // System.out.println();
-        Node nextNode = firstNode;
-        for (int i = 0; i < 5; i++) {
-            // nextNode = nextNode.getEdges().next().getTo();
-            // System.out.println(nextNode.getStop());
-            // System.out.println(firstNode.getEdges().next());
-            // System.out.println(nextNode.getEdges().get(0).getStopTime());
-            // System.out.println(nextNode.getEdges().get(0).getTo().getStop());
-            // System.out.println();
-        }
-        // edge iterator to flat list
-        List<Edge> edges = new ArrayList<>();
-        EdgeIterator ei = firstNode.getEdgesTo(firstNode.getDestinations().iterator().next(), new Time(12, 0));
-        while (ei.hasNext()) {
-            edges.add(ei.next());
-        }
-
-        List<Time> x = edges.stream().map(e -> e.getDeparture().getDepartureTime()).toList();
-        // x.sort((a,b) -> a.compareTo(b));
-        // System.out.println(x);
-
-        // print haversine between first and second node
-        // System.out.println(firstNode.getStop().distanceTo(firstNode.getDestinations().iterator().next().getStop()));
-
-
-        EdgeIterator emptyEi = new EdgeIterator(new TreeSet<>(), new Time(12, 0));
-
-
-        EdgeIterator eiWithOne = new EdgeIterator(new TreeSet<>(List.of(new Edge(null, new StopTime(0, new Time(12, 0), new Time(12, 1), 0, 0, 0, 0), new StopTime(0, new Time(12, 5), new Time(12, 6), 0, 0, 0, 0)))), new Time(12, 2));
-
-
-        // System.out.println();
-        // System.out.println();
-        // System.out.println();
-
-        Node hornstull = nodes.get(740021658L);
-        // System.out.println(hornstull.toString());
-        // System.out.println(hornstull.getDestinations());
-        for (Node n : hornstull.getDestinations()) {
-            System.out.println(n.getStop().getName() + ": " +
-                n.getStop().distanceTo(hornstull.getStop()));
-            if (n.getStop().getName().equals("Liljeholmen T-bana")) {
-                EdgeIterator ei4 = hornstull.getEdgesTo(n, new Time(12, 0));
-                while (ei4.hasNext()) {
-                    Edge e = ei4.next();
-                    // System.out.println(e.getDeparture().getDepartureTime() + " -> " + e.getArrival().getArrivalTime());
-                }
-            }
-        }
-
-        Node tCentralen = nodes.get(740020749L);
-
-        Node[] nodesArray = nodes.values().toArray(new Node[0]);
-        Arrays.sort(nodesArray, (a, b) -> Integer.compare(a.getStop().distanceTo(tCentralen.getStop()), b.getStop().distanceTo(tCentralen.getStop())));
-        for (int i = 0; i <nodesArray.length; i++) {
-            Node n = nodesArray[i];
-            // System.out.println(n.getStop().getName() + ": " + n.getStop().distanceTo(tCentralen.getStop()));
-        }*/
+        return nodes;
     }
 
-    private int getMaxSpeed() {
+    private static int getMaxSpeed(Collection<Node> nodes) {
         // For each node, check all edges and check what the speed is
         // if it is the highest - update counter
         int maxSpeed = Integer.MIN_VALUE;
-        for (Node node : nodes.values()) {
+        for (Node node : nodes) {
             for (Node destination : node.getDestinations()) {
-                for (Entry<Route, TreeSet<Edge>> entry : node.getEdgesToRoutes(destination)) {
-                    Route route = entry.getKey();
-                    for (Edge edge : entry.getValue()) {
-                        int travelTime = edge.getTravelTime();
-                        int metersTravelled = node.getStop().distanceTo(destination.getStop());
-                        int speed = metersTravelled / Math.max(travelTime, 1);
-                        if (speed > maxSpeed) {
-                            maxSpeed = speed;
-                        }
+                for (Edge edge : node.getAllEdgesTo(destination)) {
+                    int travelTime = edge.getTravelTime();
+                    int metersTravelled = node.getStop().distanceTo(destination.getStop());
+                    int speed = metersTravelled / Math.max(travelTime, 1);
+                    if (speed > maxSpeed) {
+                        maxSpeed = speed;
                     }
-            
                 }
             }
         }

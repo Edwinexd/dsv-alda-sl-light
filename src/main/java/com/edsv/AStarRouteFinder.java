@@ -2,7 +2,6 @@ package com.edsv;
 
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.PriorityQueue;
 import java.util.TreeSet;
 import java.util.Map.Entry;
@@ -17,8 +16,15 @@ public class AStarRouteFinder {
         NodeEntry previous; // for reconstructing path
         Edge previousEdge;
 
-        NodeEntry(Node node) {
+        NodeEntry(Node node, int cost) {
             this.node = node;
+            this.cost = cost;
+        }
+        NodeEntry(Node node, int cost, NodeEntry previous, Edge previousEdge) {
+            this.node = node;
+            this.cost = cost;
+            this.previous = previous;
+            this.previousEdge = previousEdge;
         }
 
         @Override
@@ -59,6 +65,7 @@ public class AStarRouteFinder {
 
     // TODO: Remove duplicate routes, e.g. a->b b->c may both be on tripId 1 and we
     // should then only return a->c
+    /*
     public static LinkedList<Edge> findRoute(HashMap<Long, Node> nodes, Node start, Node end, Time departureTime) {
 
         // Heuristic, distance to goal
@@ -74,8 +81,7 @@ public class AStarRouteFinder {
         // for (Node node : nodes.values()) {
             // nodeEntries.put(node, new NodeEntry(node));
         // }
-        NodeEntry startEntry = new NodeEntry(start);
-        startEntry.cost = 0;
+        NodeEntry startEntry = new NodeEntry(start, 0);
         cheapestCosts.put(start, startEntry);
 
         // Solution to updating the priority queue, we keep track of the actual cheapest in a special QueueEntry attr
@@ -109,52 +115,192 @@ public class AStarRouteFinder {
                 Time currentTime = new Time(departureTime.getMinutes() + current.cost);
 
                 // 00:05, 06:03, 07:01 - sorted iteration
-                for (Entry<Route, TreeSet<Edge>> entry : current.node.getEdgesToRoutes(destination)) {
+                for (Entry<Route, Edge> entry : current.node.getFirstEdgesTo(destination,
+                    (Edge e) -> {
+                        if (e.getDeparture().getDepartureTime().getMinutes() < currentTime.getMinutes()) {
+                            return false;
+                        }
+                        if (current.previousEdge != null && current.previousEdge.getArrival().getTripId() != e.getDeparture().getTripId()) {
+                            if (e.getDeparture().getDepartureTime().getDifference(currentTime) < 5) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+                )) {
                     Route route = entry.getKey();
+                    Edge edge = entry.getValue();
                     // "Crawl" cheapest edge via each node
                     // so for each route, skip edges as long as they're in the past or we require an illegal transfer (< 5 minutes)
                     // , then choose one (which will be the cheapest)
-                    for (Edge edge : entry.getValue()) {
-                        // if edge has departed
-                        if (edge.getDeparture().getDepartureTime().getMinutes() < currentTime.getMinutes()) {
-                            continue;
-                        }
-                        if (current.previousEdge != null && current.previousEdge.getArrival().getTripId() != edge.getDeparture().getTripId()) {
-                            // Departure must be in more than 5 minutes if we are switching route
-                            if (edge.getDeparture().getDepartureTime().getDifference(currentTime) < 5) {
-                                continue;
-                            }
-                        }
-                        // newCost = cost from start to current + wait time for the edge.getDeparture().getDepartureTime() + edge.getTravelTime()
-                        int newCost = current.cost + edge.getDeparture().getDepartureTime().getDifference(currentTime) + edge.getTravelTime();
-                        NodeEntry newEntry = new NodeEntry(destination);
-                        newEntry.cost = newCost;
-                        newEntry.previous = current;
-                        newEntry.previousEdge = edge;
-                        if (newCost < cheapestCosts.getOrDefault(destination, new NodeEntry(destination)).cost) {
-                            cheapestCosts.put(destination, newEntry);
-                        }
-                        int estimatedMinutesToGoal = goalDistance / MAX_SPEED;
-                        int priority = newCost + estimatedMinutesToGoal;
-                        // TODO: Penalizing transfers is prob a good idea but shouldn't be done from this
-                        // priority += numberOfTransfers; // if two routes end up having the same cost we prefer the one with fewer transfers
-                        queue.add(new QueueEntry(newEntry, newCost, priority));
-                        break;
+
+                    // newCost = cost from start to current + wait time for the edge.getDeparture().getDepartureTime() + edge.getTravelTime()
+                    int newCost = current.cost + edge.getDeparture().getDepartureTime().getDifference(currentTime) + edge.getTravelTime();
+                    NodeEntry newEntry = new NodeEntry(destination, newCost, current, edge);
+                    if (newCost < cheapestCosts.getOrDefault(destination, new NodeEntry(destination, Integer.MAX_VALUE)).cost) {
+                        cheapestCosts.put(destination, newEntry);
                     }
+                    int estimatedMinutesToGoal = goalDistance / MAX_SPEED;
+                    int priority = newCost + estimatedMinutesToGoal;
+                    // TODO: Penalizing transfers is prob a good idea but shouldn't be done from this
+                    // priority += numberOfTransfers; // if two routes end up having the same cost we prefer the one with fewer transfers
+                    queue.add(new QueueEntry(newEntry, newCost, priority));
                 }
             }
         }
 
-        /*
-        NodeEntry endEntry = cheapestCosts.get(end);
-        // count unique trip ids
-        System.out.println(endEntry.pathTaken.stream().map(e -> e.getDeparture().getTripId()).distinct().count());
+        return null;
+    }
+    */
+    public static LinkedList<Edge> findRoute(HashMap<Long, Node> nodes, Node start, Node end, Time departureTime) {
+        // Heuristic, distance to goal
+        HashMap<Stop, Integer> distanceToGoal = new HashMap<>();
+        for (Node node : nodes.values()) {
+            distanceToGoal.put(node.getStop(), node.getStop().distanceTo(end.getStop()));
+        }
 
-        System.out.println(endEntry.pathTaken);
-        System.out.println(endEntry.pathTaken.stream().map(e -> e.getDeparture().getTripId()).toList());
+        // To accurately keep track of cheapest costs there are 2 (3) dimensions to consider:
+        // 1. To which node
+        // 2. Which route/trip id we took
+        // (3. Time)
+        HashMap<Node, HashMap<Route, NodeEntry>> cheapestCosts = new HashMap<>();
 
-        System.out.println(endEntry.cost);
-        */
+        NodeEntry startEntry = new NodeEntry(start, 0);
+
+        cheapestCosts.put(start, new HashMap<>());
+        cheapestCosts.get(start).put(null, startEntry);
+
+
+        // Inspired by the idea not updating the priorit queue per:
+        // https://stackoverflow.com/questions/1871253/updating-java-priorityqueue-when-its-elements-change-priority
+        // and instead keeping track of the actual cheapest cost/priority separately and validating after each poll
+        PriorityQueue<QueueEntry> queue = new PriorityQueue<>();
+        queue.add(new QueueEntry(startEntry, 0, 0));
+
+        while (!queue.isEmpty()) {
+            QueueEntry polled = queue.poll();
+
+            NodeEntry current = polled.entry;
+
+            if (current.previousEdge != null && polled.cost != cheapestCosts.get(current.node).get(current.previousEdge.getDeparture().getTrip().getRoute()).cost) {
+                continue;
+            }
+
+            if (current.node.equals(end)) {
+                LinkedList<Edge> path = new LinkedList<>();
+                NodeEntry currentEntry = current;
+                while (currentEntry.previous != null) {
+                    path.addFirst(currentEntry.previousEdge);
+                    currentEntry = currentEntry.previous;
+                }
+                return path;
+            }
+
+            for (Node destination : current.node.getDestinations()) {
+                int goalDistance = distanceToGoal.get(destination.getStop());
+                Time currentTime = new Time(departureTime.getMinutes() + current.cost);
+
+                for (Entry<Route, Edge> entry : current.node.getFirstEdgesTo(destination,
+                    (Edge e) -> {
+                        if (e.getDeparture().getDepartureTime().getMinutes() < currentTime.getMinutes()) {
+                            return false;
+                        }
+                        if (current.previousEdge != null && current.previousEdge.getArrival().getTripId() != e.getDeparture().getTripId()) {
+                            if (e.getDeparture().getDepartureTime().getDifference(currentTime) < 5) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+                )) {
+                    Route route = entry.getKey();
+                    Edge edge = entry.getValue();
+
+                    // newCost = cost from start to current + wait time for the edge.getDeparture().getDepartureTime() + edge.getTravelTime()
+                    int newCost = current.cost + edge.getDeparture().getDepartureTime().getDifference(currentTime) + edge.getTravelTime();
+
+                    cheapestCosts.putIfAbsent(destination, new HashMap<>());
+                    if (!cheapestCosts.get(destination).containsKey(route) || newCost < cheapestCosts.get(destination).get(route).cost) {
+                        NodeEntry newEntry = new NodeEntry(destination, newCost, current, edge);
+
+                        cheapestCosts.get(destination).put(route, newEntry);
+                        int estimatedMinutesToGoal = goalDistance / MAX_SPEED;
+                        int priority = newCost + estimatedMinutesToGoal;
+                        queue.add(new QueueEntry(newEntry, newCost, priority));
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+
+    // This is a pure A* implementation, it is practically useless as it 
+    // can't consider taking different routes to the same destination
+    // which in turn may allow a cheaper route to be found
+    // for example: taking a later connection at T-Centralen -> Gamla Stan may be more expensive right now
+    // but may be cheaper to get to Hagsätra in the end
+    public static LinkedList<Edge> findRoutePureAStar(HashMap<Long, Node> nodes, Node start, Node end, Time departureTime) {
+        // Heuristic, distance to goal
+        HashMap<Long, Integer> distanceToGoal = new HashMap<>();
+        for (Node node : nodes.values()) {
+            distanceToGoal.put(node.getStop().getId(), node.getStop().distanceTo(end.getStop()));
+        }
+
+        HashMap<Node, NodeEntry> cheapestCosts = new HashMap<>();
+        
+        NodeEntry startEntry = new NodeEntry(start, 0);
+        cheapestCosts.put(start, startEntry);
+
+        // to allow updates of priority of elements in the queue we always compare QueueEntry.cost to cheapestCosts
+        // if they differ we skip the element as the actual cheapest is already in the queue or has already been processed
+        // inspired by https://stackoverflow.com/questions/1871253/updating-java-priorityqueue-when-its-elements-change-priority
+        // cheaper then updating priority of elements in the queue
+        PriorityQueue<QueueEntry> queue = new PriorityQueue<>();
+        queue.add(new QueueEntry(startEntry, 0, 0));
+
+        while (!queue.isEmpty()) {
+            QueueEntry polled = queue.poll();
+            if (polled.cost != cheapestCosts.get(polled.entry.node).cost) {
+                continue;
+            }
+            NodeEntry current = polled.entry;
+            if (current.node.equals(end)) {
+                LinkedList<Edge> path = new LinkedList<>();
+                NodeEntry currentEntry = current;
+                while (currentEntry.previous != null) {
+                    path.addFirst(currentEntry.previousEdge);
+                    currentEntry = currentEntry.previous;
+                }
+                return path;
+            }
+
+            for (Node destination : current.node.getDestinations()) {
+                int goalDistance = distanceToGoal.get(destination.getStop().getId());
+                Time currentTime = new Time(departureTime.getMinutes() + current.cost);
+
+                for (Edge edge : current.node.getAllEdgesTo(destination)) {
+                    if (edge.getDeparture().getDepartureTime().getMinutes() < currentTime.getMinutes()) {
+                        continue;
+                    }
+                    if (current.previousEdge != null && current.previousEdge.getArrival().getTripId() != edge.getDeparture().getTripId()) {
+                        if (edge.getDeparture().getDepartureTime().getDifference(currentTime) < 5) {
+                            continue;
+                        }
+                    }
+                    int newCost = current.cost + edge.getDeparture().getDepartureTime().getDifference(currentTime) + edge.getTravelTime();
+                    if (!cheapestCosts.containsKey(destination) || newCost < cheapestCosts.get(destination).cost) {
+                        NodeEntry newEntry = new NodeEntry(destination, newCost, current, edge);
+                        cheapestCosts.put(destination, newEntry);
+                        int estimatedMinutesToGoal = goalDistance / MAX_SPEED;
+                        int priority = newCost + estimatedMinutesToGoal;
+                        queue.add(new QueueEntry(newEntry, newCost, priority));
+                    }
+                    break;
+                }
+            }
+        }
+
         return null;
     }
 }
